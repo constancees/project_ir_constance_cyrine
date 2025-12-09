@@ -4,44 +4,40 @@ from sensor_msgs.msg import LaserScan
 from geometry_msgs.msg import Twist
 
 class MySimulationNode(Node):
-
+    
     def __init__(self):
-        super().__init__("simulation_node")
-
+        super().__init__('simulation_node') ## ne pas supprimer, permet au truc davoir acces aux fonctionnalites ros2
         self.subscriber_ = self.create_subscription(
             LaserScan,
-            "/scan",
+            '/scan',
             self.scan_callback,
-            10
-        )
-
-        self.cmd_vel_publisher_ = self.create_publisher(Twist, "/cmd_vel", 10)
-
-        # States: "FORWARD", "TURN", "REALIGN"
-        self.state = "FORWARD"
-        self.turn_direction = None   # "LEFT" or "RIGHT"
-
-        # Gains
-        self.Kp = 0.55
-        self.max_speed = 0.8
+            10)
+        self.cmd_vel_publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.Kp = 1.2
+        self.max_speed = 0.9
         self.max_turn_speed = 0.6
-
-        # thresholds
-        self.turn_trigger = 1.0       # when to start turning
-        self.front_open_threshold = 1.8   # when new corridor is visible
-
+        self.state = "FORWARD"
+        self.turn_direction = None
+        self.turn_trigger = 1.0
+        self.front_open_threshold = 2.0
+        self.linear = 0.6
+    
     def scan_callback(self, msg):
         ranges = msg.ranges
-        n = len(ranges)
 
-        front = ranges[n//2]
-        left  = ranges[int(n*3/4)]
-        right = ranges[int(n*1/4)]
+        n = len(ranges)
+        front = msg.ranges[n//2]
+        left = msg.ranges[int(n*3/4)]
+        right = msg.ranges[int(n*1/4)]
+
+        self.get_logger().info("left : " + str(left))
+        self.get_logger().info("right : " + str(right))
+        self.get_logger().info("front : " + str(front))
 
         if self.state == "FORWARD":
             self.forward_behavior(front, left, right)
         elif self.state == "TURN":
-            self.turn_behavior(front)
+            self.turn_behavior(front,left,right)
         elif self.state == "REALIGN":
             self.realign_behavior(front, left, right)
 
@@ -65,24 +61,26 @@ class MySimulationNode(Node):
         angular = max(min(angular, self.max_turn_speed), -self.max_turn_speed)
 
         # adjust speed
-        linear = self.max_speed - abs(angular) * 0.2
-        linear = max(0.2, linear)
+        self.linear = self.max_speed - abs(angular) * 0.2
+        self.linear = max(0.2, self.linear)
 
-        self.move_robot(linear, angular)
+        self.move_robot(self.linear, angular)
+        self.get_logger().info("devant")
 
     # -------------------------
     # TURN: fixed rotation
     # -------------------------
-    def turn_behavior(self, front):
+    def turn_behavior(self, front,left,right):
 
         # Apply fixed angular speed
-        angular = 0.6 if self.turn_direction == "LEFT" else -0.6
+        angular = 1.0 if self.turn_direction == "LEFT" else -1.0
 
         # No linear motion during turn
         self.move_robot(0.0, angular)
+        self.get_logger().info("tourne")
 
         # Detect when new corridor is visible
-        if front > self.front_open_threshold:
+        if front > 2.5:
             self.state = "REALIGN"
 
     # -------------------------
@@ -95,24 +93,33 @@ class MySimulationNode(Node):
 
         # small forward motion while stabilizing
         self.move_robot(0.4, angular)
+        self.get_logger().info("realigne")
 
         # when stable → forward
         if abs(error) < 0.1:
             self.state = "FORWARD"
 
-    # -------------------------
+        self.move_robot(self.linear,angular)
+
     def move_robot(self, linear, angular):
         msg = Twist()
-        msg.linear.x = float(linear)
-        msg.angular.z = float(angular)
+        msg.linear.x = linear
+        msg.angular.z = angular
         self.cmd_vel_publisher_.publish(msg)
 
 
+
 def main(args=None):
-    rclpy.init(args=args)
+    rclpy.init(args=args) ## laisser ca tjrs en premier
     node = MySimulationNode()
     rclpy.spin(node)
     rclpy.shutdown()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
+
+
+
+
+
+
