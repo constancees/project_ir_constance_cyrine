@@ -13,12 +13,12 @@ class MySimulationNode(Node):
             self.scan_callback,
             10)
         self.cmd_vel_publisher_ = self.create_publisher(Twist, '/cmd_vel', 10)
-        self.Kp = 1.2
-        self.max_speed = 0.9
-        self.max_turn_speed = 0.6
+        self.Kp = 0.40
+        self.max_speed = 0.7
+        self.max_turn_speed = 0.7
         self.state = "FORWARD"
         self.turn_direction = None
-        self.turn_trigger = 1.0
+        self.turn_trigger = 0.95
         self.front_open_threshold = 2.0
         self.linear = 0.6
     
@@ -29,22 +29,25 @@ class MySimulationNode(Node):
         front = msg.ranges[n//2]
         left = msg.ranges[int(n*3/4)]
         right = msg.ranges[int(n*1/4)]
+        frontright = msg.ranges[int(n*5/8)]
+        frontleft = msg.ranges[int(n*3/8)]
+
 
         self.get_logger().info("left : " + str(left))
         self.get_logger().info("right : " + str(right))
         self.get_logger().info("front : " + str(front))
 
         if self.state == "FORWARD":
-            self.forward_behavior(front, left, right)
+            self.forward_behavior(front, left, right, frontleft, frontright)
         elif self.state == "TURN":
-            self.turn_behavior(front,left,right)
+            self.turn_behavior(front,left,right, frontleft, frontright)
         elif self.state == "REALIGN":
-            self.realign_behavior(front, left, right)
+            self.realign_behavior(front, left, right, frontleft, frontright)
 
     # -------------------------
     # FORWARD: normal driving
     # -------------------------
-    def forward_behavior(self, front, left, right):
+    def forward_behavior(self, front, left, right, frontleft, frontright):
 
         # TURN condition
         if front < self.turn_trigger:
@@ -55,6 +58,7 @@ class MySimulationNode(Node):
 
         # Centering controller
         error = left - right
+
         angular = self.Kp * error
 
         # limit angular velocity
@@ -70,34 +74,41 @@ class MySimulationNode(Node):
     # -------------------------
     # TURN: fixed rotation
     # -------------------------
-    def turn_behavior(self, front,left,right):
+    def turn_behavior(self, front,left,right, frontleft, frontright):
 
         # Apply fixed angular speed
-        angular = 1.0 if self.turn_direction == "LEFT" else -1.0
+        angular = 1.2 if self.turn_direction == "LEFT" else -1.2
 
         # No linear motion during turn
         self.move_robot(0.0, angular)
         self.get_logger().info("tourne")
 
         # Detect when new corridor is visible
-        if front > 2.5:
+        if front > 2.3:
             self.state = "REALIGN"
 
     # -------------------------
     # REALIGN: small correction
     # -------------------------
-    def realign_behavior(self, front, left, right):
+    def realign_behavior(self, front, left, right, frontleft, frontright):
         # small proportional correction
-        error = left - right
-        angular = 0.3 * error
+        error = frontleft - frontright
+        angular = 0.15 * error
 
         # small forward motion while stabilizing
-        self.move_robot(0.4, angular)
+        self.move_robot(0.15, angular)
         self.get_logger().info("realigne")
 
         # when stable → forward
-        if abs(error) < 0.1:
+        if abs(error) < 0.15:
             self.state = "FORWARD"
+        
+        # ensures that robot turns if it fails to exit realign state in time (problem in maze 2)
+        if front < self.turn_trigger:
+            self.state = "TURN"
+            # turn toward the more open side
+            self.turn_direction = "LEFT" if right > left else "RIGHT"
+            return
 
         self.move_robot(self.linear,angular)
 
