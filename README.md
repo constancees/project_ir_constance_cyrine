@@ -9,6 +9,9 @@ In the TURN state, the robot does not move linearly but looks at the values left
 In the REALIGN state, the robot does effectively the same as in the FORWARD state, but moving slowly in order to finely correct the positioning errors before advancing. We also added a functionality to go from this state directly into the TURN state in case an obstacle was detected but the robot hadn't finished turning, in order to improve the robustness of our code.
 
 
+We ran into some difficulties and lack of time to properly fine tune our code, but we believe that it can be improved and has great potential, as it would allow our robot to navigate in environments where the walls aren´t at 90 degree angles and react to obstacles directly in front. It is also constantly trying to center itself, and the code being clearly separated in 3 behaviors allows us to clearly visualize what our robot is intending to do and what needs to be fixed / corrected.
+
+
 To run our code, we need to type in a first terminal : 
 
     colcon build
