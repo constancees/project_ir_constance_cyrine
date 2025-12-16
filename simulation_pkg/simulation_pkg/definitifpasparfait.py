@@ -68,7 +68,7 @@ class MySimulationNode(Node):
 
         # adjust speed
         self.linear = self.max_speed - abs(angular) * 0.2
-        self.linear = max(0.2, self.linear)
+        self.linear = max(0.2, self.linear) # error we didn't catch before, should be 0.6 or max_speed
 
         self.move_robot(self.linear, angular)
         self.get_logger().info("devant") # troubleshooting, announces state we are in
