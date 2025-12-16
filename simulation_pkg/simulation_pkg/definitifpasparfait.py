@@ -22,7 +22,7 @@ class MySimulationNode(Node):
         self.state = "FORWARD"
         self.turn_direction = None
         self.turn_trigger = 0.9
-        self.front_open_threshold = 2.0
+        self.front_open_threshold = 2.5
         self.linear = 0.6
     
     def scan_callback(self, msg):
@@ -86,7 +86,7 @@ class MySimulationNode(Node):
         self.get_logger().info("tourne")
 
         # detect when new corridor is visible
-        if front > 2.5:
+        if front > self.front_open_threshold:
             self.state = "REALIGN"
 
     # -------------------------
